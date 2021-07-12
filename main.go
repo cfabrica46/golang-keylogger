@@ -9,23 +9,24 @@ import (
 )
 
 func main() {
-	keyobard, err := findKeyboardDevice()
+	keyobardPath, err := findKeyboardDevice()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(keyobard)
+	fmt.Println(keyobardPath)
 }
 
 func findKeyboardDevice() (string, error) {
 	var deviceName string
 	path := "/sys/class/input/event%d/device/name"
+	resolved := "/dev/input/event%d"
 
-	for i := 0; i < 255; i++ {
+	for i := 0; i < 20; i++ {
 		b, _ := ioutil.ReadFile(fmt.Sprintf(path, i))
 
 		deviceName = strings.ToLower(string(b))
 		if strings.Contains(deviceName, "keyboard") {
-			return deviceName, nil
+			return fmt.Sprintf(resolved, i), nil
 		}
 	}
 	if deviceName == "" {
